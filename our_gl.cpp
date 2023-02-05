@@ -136,7 +136,8 @@ void triangle(Vec4f *pts, IShader &shader, TGAImage &image, TGAImage &zbuffer, c
             float z_interpolated = 1 / (alpha + beta + gamma);
             float z_interpolated_grayscale = (z_interpolated - near)/(far-near)*255.f;
             if (c.x>=0 && c.y>=0 && c.z>=0 && z_interpolated_grayscale<=zbuffer.get(P.x, P.y)[0]) {
-                bool discard = shader.fragment(c, color);
+                // it's **Vec3f(alpha, beta, gamma)** but not **c** because of perspective interpolation correction!
+                bool discard = shader.fragment(Vec3f(alpha, beta, gamma), color);
                 if (!discard) {
                     zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
                     image.set(P.x, P.y, color);
