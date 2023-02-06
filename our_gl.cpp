@@ -116,7 +116,8 @@ Vec3f barycentric(Vec2f A, Vec2f B, Vec2f C, Vec2f P) {
     return Vec3f(-1,1,1); // in this case generate negative coordinates, it will be thrown away by the rasterizator
 }
 
-void triangle(Vec4f *pts, IShader &shader, TGAImage &image, TGAImage &zbuffer, const float& near, const float& far) {
+void triangle(Vec4f *pts, IShader &shader, TGAImage &image, TGAImage &zbuffer,
+    vector<vector<float>>& sample_list, vector<vector<TGAColor>>& sample_list_color, const float& near, const float& far) {
     // bounding box
     Vec2f bboxmin( std::numeric_limits<float>::max(),  std::numeric_limits<float>::max());
     Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
@@ -129,20 +130,80 @@ void triangle(Vec4f *pts, IShader &shader, TGAImage &image, TGAImage &zbuffer, c
     Vec2i P;
     TGAColor color;
 
+    bool flag = false;
+    if(!sample_list.empty() && !sample_list_color.empty()) {
+        flag = true;
+    }
+    
+    std::vector<std::vector<float>> offset = {
+        {0.25f, 0.25f},
+        {0.25f, 0.75f},
+        {0.75f, 0.25f},
+        {0.75f, 0.75f}
+    };
+
     for (P.x=bboxmin.x; P.x<=bboxmax.x; P.x++) {
         for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) {
-            Vec3f c = barycentric(proj<2>(pts[0]), proj<2>(pts[1]), proj<2>(pts[2]), proj<2>(P));
-            float alpha = c.x / pts[0][3], beta = c.y / pts[1][3], gamma = c.z / pts[2][3];
-            float z_interpolated = 1 / (alpha + beta + gamma);
-            float z_interpolated_grayscale = (z_interpolated - near)/(far-near)*255.f;
-            if (c.x>=0 && c.y>=0 && c.z>=0 && z_interpolated_grayscale<=zbuffer.get(P.x, P.y)[0]) {
-                // it's **Vec3f(alpha, beta, gamma)** but not **c** because of perspective interpolation correction!
-                bool discard = shader.fragment(Vec3f(alpha, beta, gamma), color);
-                if (!discard) {
+            if(flag) {
+                int cnt = 0;
+                int index = 0;
+                int No = P.x + P.y * image.get_width();
+                for(auto& vec:offset) {
+                    Vec3f c = barycentric(proj<2>(pts[0]), proj<2>(pts[1]), proj<2>(pts[2]), Vec2f(P.x+vec[0], P.y+vec[1]));
+                    float alpha = c.x / pts[0][3], beta = c.y / pts[1][3], gamma = c.z / pts[2][3];
+                    float z_interpolated = 1 / (alpha + beta + gamma);
+                    if (c.x>=0 && c.y>=0 && c.z>=0 && z_interpolated<=sample_list[No][index]) {
+                        ++cnt;
+                        bool discard = shader.fragment(Vec3f(alpha, beta, gamma), color);
+                        if (!discard) {
+                            sample_list[No][index] = z_interpolated; 
+                            sample_list_color[No][index] = color;
+                        }
+                    }
+                    ++index;
+                }
+
+                if(cnt){
+                    float z_interpolated_result = 0;
+                    Vec4f result;
+                    for(auto&v : sample_list[No]) {
+                        z_interpolated_result += v;
+                    }
+                    for(auto&v : sample_list_color[No]) {
+                        result[0] += v[0];
+                        result[1] += v[1];
+                        result[2] += v[2];
+                        result[3] += v[3];
+                    }
+                    
+                    float z_interpolated_grayscale = (z_interpolated_result/4.f - near)/(far-near)*255.f;
                     zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
-                    image.set(P.x, P.y, color);
+                    image.set(P.x, P.y, TGAColor(result[0]/4, result[1]/4, result[2]/4, result[3]/4));
+                }
+            }
+            else {
+                Vec3f c = barycentric(proj<2>(pts[0]), proj<2>(pts[1]), proj<2>(pts[2]), Vec2f(P.x+0.5f, P.y+0.5f));
+                float alpha = c.x / pts[0][3], beta = c.y / pts[1][3], gamma = c.z / pts[2][3];
+                float z_interpolated = 1 / (alpha + beta + gamma);
+                float z_interpolated_grayscale = (z_interpolated - near)/(far-near)*255.f;
+                if (c.x>=0 && c.y>=0 && c.z>=0 && z_interpolated_grayscale<=zbuffer.get(P.x, P.y)[0]) {
+                    // it's **Vec3f(alpha, beta, gamma)** but not **c** because of perspective interpolation correction!
+                    bool discard = shader.fragment(Vec3f(alpha, beta, gamma), color);
+                    if (!discard) {
+                        zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
+                        image.set(P.x, P.y, color);
+                    }
                 }
             }
         }
     }
+}
+
+Vec4f toVec4f(const Vec3f& v, float f) {
+    Vec4f v4;
+    for(int i=0; i<3; ++i) {
+        v4[i] = v[i];
+    }
+    v4[3] = f;
+    return v4;
 }

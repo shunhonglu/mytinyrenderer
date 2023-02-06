@@ -11,11 +11,15 @@ Model *model     = NULL;
 IShader* s;
 const int width  = 800;
 const int height = 800;
+float near = 0.5f;
+float far = 2.5f;
+vector<vector<float>> sample_list;
+vector<vector<TGAColor>> sample_list_color;
 
 // case 1
 // unit vector!
 Vec3f light_dir(0,0,1);
-Vec3f camera_position(0, 0, 2);
+Vec3f camera_position(0, 0, 1.5);
 Vec3f camera_direction(0,0,-1);
 Vec3f up(0,1,0);
 
@@ -32,18 +36,6 @@ Vec3f up(0,1,0);
 // Vec3f up(-1,2,-1);
 // float near = 1.f;
 // float far = 5.f;
-
-float near = 1.f;
-float far = 3.f;
-
-Vec4f toVec4f(const Vec3f& v, float f) {
-    Vec4f v4;
-    for(int i=0; i<3; ++i) {
-        v4[i] = v[i];
-    }
-    v4[3] = f;
-    return v4;
-}
 
 struct GouraudShader : public IShader {
     GouraudShader(const mat<4,4,float>& u_M = View*ModelMat, const mat<4,4,float>& u_MIT = (View*ModelMat).invert_transpose()) :
@@ -69,6 +61,9 @@ struct GouraudShader : public IShader {
         float sum = bar[0] + bar[1] + bar[2];
         float intensity = varying_intensity*bar/sum;   // interpolate intensity for the current pixel
         Vec2f uv = varying_uv*bar/sum;                 // interpolate uv for the current pixel
+        if(intensity < 1e-2) {
+            return true;
+        }
         color = model->diffuse(uv)*intensity;      // well duh
         return false;                              // no, we do not discard this pixel
     }
@@ -142,6 +137,7 @@ int main(int argc, char** argv) {
     std::string output_image = "gouraud_output.tga";
     std::string zbuffer_image = "gouraud_zbuffer.tga";
 
+    // **Shader** initialization needs **ModelMat**, **View**
     set_model_mat(0.f, Vec3f(1.f, 1.f, 1.f), Vec3f(0.f, 0.f, 0.f));
     set_view_mat(camera_position, camera_direction, up);
     set_projection_matrix(90.f, 1.f, near, far);
@@ -177,6 +173,9 @@ int main(int argc, char** argv) {
     TGAImage image  (width, height, TGAImage::RGB);
     TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 
+    // sample_list = vector<vector<float>>(width*height, vector<float>(4, far));
+    // sample_list_color = vector<vector<TGAColor>>(width*height, vector<TGAColor>(4));
+
     for(int i=0; i<width; ++i) {
         for(int j=0; j<height; ++j)
             zbuffer.set(i, j, TGAColor(255));
@@ -187,7 +186,8 @@ int main(int argc, char** argv) {
         for (int j=0; j<3; j++) {
             screen_coords[j] = s->vertex(i, j);
         }
-        triangle(screen_coords, *s, image, zbuffer, near, far);
+        // TODO: sample_list 需要恰当初始化！
+        triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
     }
 
     image.  flip_vertically(); // to place the origin in the bottom left corner of the image
