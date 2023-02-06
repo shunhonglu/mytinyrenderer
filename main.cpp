@@ -173,20 +173,20 @@ int main(int argc, char** argv) {
     TGAImage image  (width, height, TGAImage::RGB);
     TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 
-    // sample_list = vector<vector<float>>(width*height, vector<float>(4, far));
-    // sample_list_color = vector<vector<TGAColor>>(width*height, vector<TGAColor>(4));
+    sample_list = vector<vector<float>>(width*height, vector<float>(4, far));
+    sample_list_color = vector<vector<TGAColor>>(width*height, vector<TGAColor>(4));
 
     for(int i=0; i<width; ++i) {
         for(int j=0; j<height; ++j)
             zbuffer.set(i, j, TGAColor(255));
     }
 
-    for (int i=0; i<model->nfaces(); i++) {
+    // model->nfaces()
+    for (int i=0; i < model->nfaces(); i++) {
         Vec4f screen_coords[3];
         for (int j=0; j<3; j++) {
             screen_coords[j] = s->vertex(i, j);
         }
-        // TODO: sample_list 需要恰当初始化！
         triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
     }
 

@@ -166,19 +166,28 @@ void triangle(Vec4f *pts, IShader &shader, TGAImage &image, TGAImage &zbuffer,
                 if(cnt){
                     float z_interpolated_result = 0;
                     Vec4f result;
+                    TGAColor color_result;
+
                     for(auto&v : sample_list[No]) {
                         z_interpolated_result += v;
                     }
+                    float z_interpolated_grayscale = (z_interpolated_result/4.f - near)/(far-near)*255.f;
+                    zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
+
                     for(auto&v : sample_list_color[No]) {
                         result[0] += v[0];
                         result[1] += v[1];
                         result[2] += v[2];
                         result[3] += v[3];
                     }
-                    
-                    float z_interpolated_grayscale = (z_interpolated_result/4.f - near)/(far-near)*255.f;
-                    zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
-                    image.set(P.x, P.y, TGAColor(result[0]/4, result[1]/4, result[2]/4, result[3]/4));
+                    for(int i=0; i < 4; ++i) {
+                        /* it's not recommend to use TGA constructor like this format:
+                        *  **color_result = TGA(result[0]/4, result[1]/4, result[2]/4, result[3]/4)**,
+                        *  it will lead a unexpected error!
+                        */ 
+                        color_result[i] = result[i]/4;
+                    } 
+                    image.set(P.x, P.y, color_result);
                 }
             }
             else {

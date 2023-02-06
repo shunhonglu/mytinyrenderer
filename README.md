@@ -22,4 +22,23 @@ void set_view_mat(Vec3f& camera_position, Vec3f& camera_dir, Vec3f& up);
 
 ```cpp
 void set_projection_matrix(const float& eye_fov, const float& aspect_ratio, const float& zNear, const float& zFar);
+```
+
+## 3. MSAA
+
+when we only rasterize the triangle numbered 25, we can obviously observe the difference between MSAA and noMSAA. The result is as following.
+
 ```cpp
+// we can only rasterize the triangle numbered 25!
+for (int i=25; i<26; i++) {
+    Vec4f screen_coords[3];
+    for (int j=0; j<3; j++) {
+        screen_coords[j] = s->vertex(i, j);
+    }
+    triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
+}
+```
+
+![./result/gouraud_output_MSAA.tga](MSAA)
+
+![./result/gouraud_output_noMSAA.tga](noMSAA)
