@@ -39,6 +39,6 @@ for (int i=25; i<26; i++) {
 }
 ```
 
-![./result/gouraud_output_MSAA.tga](MSAA)
+![MSAA](./result/gouraud_output_MSAA.png)
 
-![./result/gouraud_output_noMSAA.tga](noMSAA)
+![noMSAA](./result/gouraud_output_noMSAA.png)
