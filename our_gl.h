@@ -2,8 +2,9 @@
 #define OUR_GH_H
 
 #include <vector>
-#include "tgaimage.h"
+
 #include "geometry.h"
+#include "tgaimage.h"
 
 using std::vector;
 
@@ -21,11 +22,11 @@ Vec4f transformation(const Vec4f& vertex);
 struct IShader {
     virtual ~IShader() = default;
     virtual Vec4f vertex(int iface, int nthvert) = 0;
-    virtual bool fragment(Vec3f bar, TGAColor &color) = 0;
+    virtual bool fragment(Vec3f bar, TGAColor& color) = 0;
 };
 
-void triangle(Vec4f *pts, IShader &shader, TGAImage &image, TGAImage &zbuffer,
-    vector<vector<float>>& sample_list, vector<vector<TGAColor>>& sample_list_color, const float& near, const float& far);
+void triangle(Vec4f* pts, IShader& shader, TGAImage& image, TGAImage& zbuffer, vector<vector<float>>& sample_list,
+              vector<vector<TGAColor>>& sample_list_color, const float& near, const float& far);
 Vec4f toVec4f(const Vec3f& v, float f);
 
 #endif
