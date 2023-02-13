@@ -8,7 +8,6 @@
 #include "tgaimage.h"
 
 Model* model = NULL;
-IShader* s;
 const int width = 800;
 const int height = 800;
 vector<vector<float>> sample_list;
@@ -63,7 +62,7 @@ struct PhongShader : public IShader {
 
         float diffuse = std::max(0.f, n * l);
         float specular = pow(std::max(h * n, 0.0f), model->specular(uv));
-        color = model->diffuse(uv);
+        color = model->diffuseBilinear(uv);
         TGAColor c = color;
         for (int i = 0; i < 3; i++) color[i] = std::min<float>(ambient + c[i] * (kd * diffuse + ks * specular), 255);
         return false;  // no, we do not discard this pixel
@@ -71,11 +70,7 @@ struct PhongShader : public IShader {
 };
 
 struct ShadowShader : public IShader {
-    ShadowShader() {
-        camera_position = light_pos;
-        camera_direction = Vec3f(-light_pos[0], -light_pos[1], -light_pos[2]).normalize();
-        up = Vec3f(0, 1, 0);
-    };
+    ShadowShader() = default;
 
     virtual Vec4f vertex(int iface, int nthvert) {
         Vec4f gl_Vertex = embed<4>(model->vert(iface, nthvert));  // read the vertex from .obj file
@@ -96,35 +91,57 @@ int main(int argc, char** argv) {
         zbuffer_image = argv[1] + std::string("_zbuffer.tga");
     }
 
-    s = new ShadowShader();
-    // **Shader** initialization needs **ModelMat**, **View**
-    set_model_mat(0.f, Vec3f(1.f, 1.f, 1.f), Vec3f(0.f, 0.f, 0.f));
-    set_view_mat(camera_position, camera_direction, up);
-    set_projection_matrix(90.f, 1.f, near, far);
-    set_viewport_mat(0, 0, width, height);
-
-    // s = new PhongShader();
     model = new Model("obj/african_head.obj");
-
     TGAImage image(width, height, TGAImage::RGB);
     TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
-
     sample_list = vector<vector<float>>(width * height, vector<float>(4, far));
     sample_list_color = vector<vector<TGAColor>>(width * height, vector<TGAColor>(4));
-
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < height; ++j) {
             zbuffer.set(i, j, TGAColor(255));
         }
     }
 
-    // model->nfaces()
-    for (int i = 0; i < model->nfaces(); i++) {
-        Vec4f screen_coords[3];
-        for (int j = 0; j < 3; j++) {
-            screen_coords[j] = s->vertex(i, j);
+    {
+        IShader* s;
+        // **Shader** initialization needs **ModelMat**, **View**
+        set_model_mat(0.f, Vec3f(1.f, 1.f, 1.f), Vec3f(0.f, 0.f, 0.f));
+        Vec3f camera_position_s = light_pos;
+        Vec3f camera_direction_s = Vec3f(-light_pos[0], -light_pos[1], -light_pos[2]).normalize();
+        Vec3f up_s = Vec3f(0, 1, 0);
+        set_view_mat(camera_position_s, camera_direction_s, up_s);
+        set_projection_matrix(90.f, 1.f, near, far);
+        set_viewport_mat(0, 0, width, height);
+        s = new ShadowShader();
+
+        // model->nfaces()
+        for (int i = 0; i < model->nfaces(); i++) {
+            Vec4f screen_coords[3];
+            for (int j = 0; j < 3; j++) {
+                screen_coords[j] = s->vertex(i, j);
+            }
+            triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
         }
-        triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
+        delete s;
+    }
+
+    {
+        IShader* s;
+        // **Shader** initialization needs **ModelMat**, **View**
+        set_model_mat(0.f, Vec3f(1.f, 1.f, 1.f), Vec3f(0.f, 0.f, 0.f));
+        set_view_mat(camera_position, camera_direction, up);
+        set_projection_matrix(90.f, 1.f, near, far);
+        set_viewport_mat(0, 0, width, height);
+        s = new PhongShader();
+        // model->nfaces()
+        for (int i = 0; i < model->nfaces(); i++) {
+            Vec4f screen_coords[3];
+            for (int j = 0; j < 3; j++) {
+                screen_coords[j] = s->vertex(i, j);
+            }
+            triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
+        }
+        delete s;
     }
 
     image.flip_vertically();  // to place the origin in the bottom left corner
@@ -134,6 +151,5 @@ int main(int argc, char** argv) {
     zbuffer.write_tga_file(zbuffer_image.c_str());
 
     delete model;
-    delete s;
     return 0;
 }
