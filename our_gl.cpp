@@ -18,10 +18,9 @@ void print(const std::string msg, const Matrix& m) {
     }
 }
 
-/**************************************** MVP BEG
- * ****************************************/
+// MVP begin!
 void set_model_mat(const float& angle, const Vec3f& scale, const Vec3f& translate) {
-    // To-do: rotation around any axis!
+    // TODO: rotation around any axis!
     Matrix rotation_mat = Matrix::identity();
     float arc = angle * PI / 180.f;
     rotation_mat[0][0] = cos(arc), rotation_mat[0][2] = sin(arc);
@@ -42,14 +41,13 @@ void set_model_mat(const float& angle, const Vec3f& scale, const Vec3f& translat
     print("ModelMat", ModelMat);
 }
 
-// you should make sure that **camera_dir** and **up** are orthogonal
+// you should make sure that **camera_dir** and **up** are orthogonal!
+// reference GAMES101
+// camera_dir correspond to -z axis in fact!
 void set_view_mat(Vec3f& camera_position, Vec3f& camera_dir, Vec3f& up) {
-    // reference GAMES101
-    // camera_dir correspond to -z axis in fact!
     Vec3f z = camera_dir.normalize();
     Vec3f y = up.normalize();
-    // Attention
-    Vec3f x = cross(z, y).normalize();
+    Vec3f x = cross(z, y).normalize();  // Attention
     Matrix Minv = Matrix::identity();
     Matrix Tr = Matrix::identity();
     for (int i = 0; i < 3; i++) {
@@ -102,8 +100,7 @@ Vec4f transformation(const Vec4f& vertex) {
 
     return screen_coord;
 }
-/**************************************** MVP END
- * ****************************************/
+// MVP END
 
 Vec3f barycentric(Vec2f A, Vec2f B, Vec2f C, Vec2f P) {
     Vec3f s[2];
@@ -134,77 +131,53 @@ void triangle(Vec4f* pts, IShader& shader, TGAImage& image, TGAImage& zbuffer, v
     Vec2i P;
     TGAColor color;
 
-    bool flag = false;
-    if (!sample_list.empty() && !sample_list_color.empty()) {
-        flag = true;
-    }
-
     std::vector<std::vector<float>> offset = {{0.25f, 0.25f}, {0.25f, 0.75f}, {0.75f, 0.25f}, {0.75f, 0.75f}};
 
     for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) {
         for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
-            if (flag) {
-                int cnt = 0;
-                int index = 0;
-                int No = P.x + P.y * image.get_width();
-                for (auto& vec : offset) {
-                    Vec3f c = barycentric(proj<2>(pts[0]), proj<2>(pts[1]), proj<2>(pts[2]),
-                                          Vec2f(P.x + vec[0], P.y + vec[1]));
-                    float alpha = c.x / pts[0][3], beta = c.y / pts[1][3], gamma = c.z / pts[2][3];
-                    float z_interpolated = 1 / (alpha + beta + gamma);
-                    if (c.x >= 0 && c.y >= 0 && c.z >= 0 && z_interpolated <= sample_list[No][index]) {
-                        ++cnt;
-                        bool discard = shader.fragment(Vec3f(alpha, beta, gamma), color);
-                        if (!discard) {
-                            sample_list[No][index] = z_interpolated;
-                            sample_list_color[No][index] = color;
-                        }
-                    }
-                    ++index;
-                }
-
-                if (cnt) {
-                    float z_interpolated_result = 0;
-                    Vec4f result;
-                    TGAColor color_result;
-
-                    for (auto& v : sample_list[No]) {
-                        z_interpolated_result += v;
-                    }
-                    float z_interpolated_grayscale = (z_interpolated_result / 4.f - near) / (far - near) * 255.f;
-                    zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
-
-                    for (auto& v : sample_list_color[No]) {
-                        result[0] += v[0];
-                        result[1] += v[1];
-                        result[2] += v[2];
-                        result[3] += v[3];
-                    }
-                    for (int i = 0; i < 4; ++i) {
-                        /* it's not recommend to use TGA constructor like this
-                         * format:
-                         *  **color_result = TGA(result[0]/4, result[1]/4,
-                         * result[2]/4, result[3]/4)**, it will lead a
-                         * unexpected error!
-                         */
-                        color_result[i] = result[i] / 4;
-                    }
-                    image.set(P.x, P.y, color_result);
-                }
-            } else {
-                Vec3f c = barycentric(proj<2>(pts[0]), proj<2>(pts[1]), proj<2>(pts[2]), Vec2f(P.x + 0.5f, P.y + 0.5f));
+            int cnt = 0;
+            int index = 0;
+            int No = P.x + P.y * image.get_width();
+            for (auto& vec : offset) {
+                Vec3f c =
+                    barycentric(proj<2>(pts[0]), proj<2>(pts[1]), proj<2>(pts[2]), Vec2f(P.x + vec[0], P.y + vec[1]));
                 float alpha = c.x / pts[0][3], beta = c.y / pts[1][3], gamma = c.z / pts[2][3];
                 float z_interpolated = 1 / (alpha + beta + gamma);
-                float z_interpolated_grayscale = (z_interpolated - near) / (far - near) * 255.f;
-                if (c.x >= 0 && c.y >= 0 && c.z >= 0 && z_interpolated_grayscale <= zbuffer.get(P.x, P.y)[0]) {
-                    // it's **Vec3f(alpha, beta, gamma)** but not **c** because
-                    // of perspective interpolation correction!
+                if (c.x >= 0 && c.y >= 0 && c.z >= 0 && z_interpolated <= sample_list[No][index]) {
+                    ++cnt;
                     bool discard = shader.fragment(Vec3f(alpha, beta, gamma), color);
                     if (!discard) {
-                        zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
-                        image.set(P.x, P.y, color);
+                        sample_list[No][index] = z_interpolated;
+                        sample_list_color[No][index] = color;
                     }
                 }
+                ++index;
+            }
+
+            if (cnt) {
+                float z_interpolated_result = 0;
+                Vec4f result;
+                TGAColor color_result;
+
+                for (auto& v : sample_list[No]) {
+                    z_interpolated_result += v;
+                }
+                float z_interpolated_grayscale = (z_interpolated_result / 4.f - near) / (far - near) * 255.f;
+                zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
+
+                for (auto& v : sample_list_color[No]) {
+                    result[0] += v[0];
+                    result[1] += v[1];
+                    result[2] += v[2];
+                    result[3] += v[3];
+                }
+                for (int i = 0; i < 4; ++i) {
+                    // it's not recommend to use TGA constructor like this format:
+                    // **color_result = TGA(result[0]/4, result[1]/4, result[2]/4, result[3]/4)**,
+                    // it will lead a unexpected error!
+                    color_result[i] = result[i] / 4;
+                }
+                image.set(P.x, P.y, color_result);
             }
         }
     }
