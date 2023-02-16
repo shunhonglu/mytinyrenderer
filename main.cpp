@@ -8,19 +8,19 @@
 #include "tgaimage.h"
 
 Model* model = NULL;
-const int width = 400;
-const int height = 400;
+const int width = 1600;
+const int height = 1600;
 TGAImage image(width, height, TGAImage::RGB);
 TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 vector<vector<float>> sample_list;
 vector<vector<TGAColor>> sample_list_color;
 
-Vec3f light_pos(0, 0, 10);
-Vec3f camera_position(200, 50, 200);
-Vec3f camera_direction(-1, -1, -1);
-Vec3f up(-1, 2, -1);
+Vec3f light_pos(5, 0, 5);
+Vec3f camera_position(1, 0.5, 1);
+Vec3f camera_direction(-2, -1, -2);
+Vec3f up(-1, 4, -1);
 float near = 0.1f;
-float far = 800.f;
+float far = 10.f;
 
 void init();
 
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 }
 
 void init() {
-    model = new Model("../obj/grid/grid.obj");
+    model = new Model("../obj/african_head.obj");
     sample_list = vector<vector<float>>(width * height, vector<float>(4, far));
     sample_list_color = vector<vector<TGAColor>>(width * height, vector<TGAColor>(4));
 
