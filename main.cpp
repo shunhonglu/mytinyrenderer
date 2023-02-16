@@ -8,25 +8,30 @@
 #include "tgaimage.h"
 
 Model* model = NULL;
-const int width = 800;
-const int height = 800;
+const int width = 400;
+const int height = 400;
+TGAImage image(width, height, TGAImage::RGB);
+TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 vector<vector<float>> sample_list;
 vector<vector<TGAColor>> sample_list_color;
 
-Vec3f light_pos(0, 0, 2);
-Vec3f camera_position(1.0, 0.6, 1.0);
-Vec3f camera_direction(-1, -0.4, -1);
-Vec3f up(-1, 5, -1);
-float near = 0.5f;
-float far = 3.f;
+Vec3f light_pos(0, 0, 10);
+Vec3f camera_position(200, 50, 200);
+Vec3f camera_direction(-1, -1, -1);
+Vec3f up(-1, 2, -1);
+float near = 0.1f;
+float far = 800.f;
+
+void init();
 
 struct PhongShader : public IShader {
-    PhongShader(float am = 5.f, float kd_ = 1.f, float ks_ = 0.6f, const mat<4, 4, float>& u_M = View * ModelMat,
+    PhongShader(float am = 5.f, float kd_ = 2.f, float ks_ = 0.8f, const mat<4, 4, float>& u_M = View * ModelMat,
                 const mat<4, 4, float>& u_MIT = (View * ModelMat).invert_transpose())
         : ambient(am),
           kd(kd_),
           ks(ks_),
           varying_uv(mat<2, 3, float>()),
+          varying_normal(mat<3, 3, float>()),
           varying_tri(mat<4, 3, float>()),
           uniform_M(u_M),
           uniform_MIT(u_MIT),
@@ -34,16 +39,18 @@ struct PhongShader : public IShader {
 
     float ambient, kd, ks;
     mat<2, 3, float> varying_uv;
+    mat<3, 3, float> varying_normal;
     mat<4, 3, float> varying_tri;
     mat<4, 4, float> uniform_M;    //  View*ModelView
     mat<4, 4, float> uniform_MIT;  // (View*ModelView).invert_transpose()
     Vec3f l_pos;
 
     virtual Vec4f vertex(int iface, int nthvert) {
-        varying_uv.set_col(nthvert, model->uv(iface, nthvert));
-        Vec4f gl_Vertex = embed<4>(model->vert(iface, nthvert));  // read the vertex from .obj file
+        varying_uv.set_col(nthvert, model->uv(iface, nthvert));          // read the uv from .obj file
+        varying_normal.set_col(nthvert, model->normal(iface, nthvert));  // read the normal from .obj file
+        Vec4f gl_Vertex = embed<4>(model->vert(iface, nthvert));         // read the vertex from .obj file
 
-        varying_tri.set_col(nthvert, uniform_M * gl_Vertex);  // TODO:
+        varying_tri.set_col(nthvert, uniform_M * gl_Vertex);  // compute the coordinates of a vertex in space
         gl_Vertex = transformation(gl_Vertex);                // transform it to screen coordinates
         return gl_Vertex;
     }
@@ -51,35 +58,21 @@ struct PhongShader : public IShader {
     virtual bool fragment(Vec3f bar, TGAColor& color) {
         float sum = bar[0] + bar[1] + bar[2];
         Vec2f uv = varying_uv * bar / sum;  // interpolate uv for the current pixel
-
-        Vec4f normal = uniform_MIT * toVec4f(model->normal(uv), 0.f);
-        Vec3f n = proj<3>(normal).normalize();
-
+        Vec3f normal = (varying_normal * bar / sum).normalize();
         Vec4f view_pos = varying_tri * bar / sum;
+
         Vec3f l = (l_pos - Vec3f(view_pos[0], view_pos[1], view_pos[2])).normalize();
         Vec3f eye_dir = Vec3f(-view_pos[0], -view_pos[1], -view_pos[2]).normalize();
         Vec3f h = (l + eye_dir).normalize();  // half vector!
 
-        float diffuse = std::max(0.f, n * l);
-        float specular = pow(std::max(h * n, 0.0f), model->specular(uv));
+        float diffuse = std::max(0.f, normal * l);
+        float specular = pow(std::max(h * normal, 0.0f), model->specular(uv));
+
         color = model->diffuseBilinear(uv);
         TGAColor c = color;
         for (int i = 0; i < 3; i++) color[i] = std::min<float>(ambient + c[i] * (kd * diffuse + ks * specular), 255);
         return false;  // no, we do not discard this pixel
     }
-};
-
-struct ShadowShader : public IShader {
-    ShadowShader() = default;
-
-    virtual Vec4f vertex(int iface, int nthvert) {
-        Vec4f gl_Vertex = embed<4>(model->vert(iface, nthvert));  // read the vertex from .obj file
-
-        gl_Vertex = transformation(gl_Vertex);  // transform it to screen coordinates
-        return gl_Vertex;
-    }
-
-    virtual bool fragment(Vec3f bar, TGAColor& color) { return false; }
 };
 
 int main(int argc, char** argv) {
@@ -91,39 +84,7 @@ int main(int argc, char** argv) {
         zbuffer_image = argv[1] + std::string("_zbuffer.tga");
     }
 
-    model = new Model("obj/african_head.obj");
-    TGAImage image(width, height, TGAImage::RGB);
-    TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
-    sample_list = vector<vector<float>>(width * height, vector<float>(4, far));
-    sample_list_color = vector<vector<TGAColor>>(width * height, vector<TGAColor>(4));
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            zbuffer.set(i, j, TGAColor(255));
-        }
-    }
-
-    {
-        IShader* s;
-        // **Shader** initialization needs **ModelMat**, **View**
-        set_model_mat(0.f, Vec3f(1.f, 1.f, 1.f), Vec3f(0.f, 0.f, 0.f));
-        Vec3f camera_position_s = light_pos;
-        Vec3f camera_direction_s = Vec3f(-light_pos[0], -light_pos[1], -light_pos[2]).normalize();
-        Vec3f up_s = Vec3f(0, 1, 0);
-        set_view_mat(camera_position_s, camera_direction_s, up_s);
-        set_projection_matrix(90.f, 1.f, near, far);
-        set_viewport_mat(0, 0, width, height);
-        s = new ShadowShader();
-
-        // model->nfaces()
-        for (int i = 0; i < model->nfaces(); i++) {
-            Vec4f screen_coords[3];
-            for (int j = 0; j < 3; j++) {
-                screen_coords[j] = s->vertex(i, j);
-            }
-            triangle(screen_coords, *s, image, zbuffer, sample_list, sample_list_color, near, far);
-        }
-        delete s;
-    }
+    init();
 
     {
         IShader* s;
@@ -133,7 +94,7 @@ int main(int argc, char** argv) {
         set_projection_matrix(90.f, 1.f, near, far);
         set_viewport_mat(0, 0, width, height);
         s = new PhongShader();
-        // model->nfaces()
+
         for (int i = 0; i < model->nfaces(); i++) {
             Vec4f screen_coords[3];
             for (int j = 0; j < 3; j++) {
@@ -152,4 +113,16 @@ int main(int argc, char** argv) {
 
     delete model;
     return 0;
+}
+
+void init() {
+    model = new Model("../obj/grid/grid.obj");
+    sample_list = vector<vector<float>>(width * height, vector<float>(4, far));
+    sample_list_color = vector<vector<TGAColor>>(width * height, vector<TGAColor>(4));
+
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < height; ++j) {
+            zbuffer.set(i, j, TGAColor(255));
+        }
+    }
 }

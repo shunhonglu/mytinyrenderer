@@ -123,10 +123,11 @@ void triangle(Vec4f* pts, IShader& shader, TGAImage& image, TGAImage& zbuffer, v
     Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
     for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 2; j++) {
-            bboxmin[j] = std::min(bboxmin[j], pts[i][j]);
-            bboxmax[j] = std::max(bboxmax[j], pts[i][j]);
-        }
+        bboxmin[0] = std::max(0.f, std::min(bboxmin[0], pts[i][0]));
+        bboxmax[0] = std::min(static_cast<float>(image.get_width() - 1), std::max(bboxmax[0], pts[i][0]));
+
+        bboxmin[1] = std::max(0.f, std::min(bboxmin[1], pts[i][1]));
+        bboxmax[1] = std::min(static_cast<float>(image.get_height() - 1), std::max(bboxmax[1], pts[i][1]));
     }
     Vec2i P;
     TGAColor color;
@@ -171,12 +172,8 @@ void triangle(Vec4f* pts, IShader& shader, TGAImage& image, TGAImage& zbuffer, v
                     result[2] += v[2];
                     result[3] += v[3];
                 }
-                for (int i = 0; i < 4; ++i) {
-                    // it's not recommend to use TGA constructor like this format:
-                    // **color_result = TGA(result[0]/4, result[1]/4, result[2]/4, result[3]/4)**,
-                    // it will lead a unexpected error!
-                    color_result[i] = result[i] / 4;
-                }
+                // it is not **color_result = TGAColor(result[0]/4, result[1]/4, result[2]/4, result[3]/4)**.
+                color_result = TGAColor(result[2] / 4, result[1] / 4, result[0] / 4, result[3] / 4);
                 image.set(P.x, P.y, color_result);
             }
         }
