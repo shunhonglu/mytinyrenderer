@@ -77,13 +77,14 @@ struct ShadowShader : public IShader {
         float sum = bar[0] + bar[1] + bar[2];
         Vec4f view_pos = varying_tri * bar / sum;
         Vec4f sb_p = uniform_Mshadow * (view_pos);  // corresponding point in the shadow buffer
-        sb_p = sb_p / sb_p[3];
+        for (int i = 0; i < 3; ++i) {
+            sb_p[i] /= sb_p[3];
+        }
         int idx = int(sb_p[0]) + int(sb_p[1]) * width;  // index in the shadowbuffer array
         float sum_depth = std::accumulate(sample_list_shadow[idx].begin(), sample_list_shadow[idx].end(), 0.f) / 4.f;
-        float dis = (proj<3>(view_pos) - l_pos).norm();
-        float shadow = 0.3f + 0.7 * (dis < (sum_depth + 5.f));
+        float shadow = 0.3f + 0.7 * (std::abs(sb_p[3] - sum_depth) < 0.1f);
 
-        Vec2f uv = varying_uv * bar / sum;  
+        Vec2f uv = varying_uv * bar / sum;
         Vec3f normal = (varying_normal * bar / sum).normalize();
 
         Vec3f l = (l_pos - Vec3f(view_pos[0], view_pos[1], view_pos[2])).normalize();

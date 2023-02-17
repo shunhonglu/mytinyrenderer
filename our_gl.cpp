@@ -88,16 +88,10 @@ void set_viewport_mat(int x, int y, int w, int h) {
 }
 
 Vec4f transformation(const Vec4f& vertex) {
-    Vec4f proj_coord = Projection * View * ModelMat * vertex;
-
-    Vec4f homo_coord;
-    for (int i = 0; i < 4; ++i) {
-        homo_coord[i] = proj_coord[i] / proj_coord[3];
+    Vec4f screen_coord = Viewport * Projection * View * ModelMat * vertex;
+    for (int i = 0; i < 3; ++i) {
+        screen_coord[i] /= screen_coord[3];
     }
-
-    Vec4f screen_coord = Viewport * homo_coord;
-    screen_coord[3] = proj_coord[3];
-
     return screen_coord;
 }
 // MVP END
