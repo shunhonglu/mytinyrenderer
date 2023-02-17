@@ -44,7 +44,7 @@ void set_model_mat(const float& angle, const Vec3f& scale, const Vec3f& translat
 // you should make sure that **camera_dir** and **up** are orthogonal!
 // reference GAMES101
 // camera_dir correspond to -z axis in fact!
-void set_view_mat(Vec3f& camera_position, Vec3f& camera_dir, Vec3f& up) {
+void set_view_mat(Vec3f camera_position, Vec3f camera_dir, Vec3f up) {
     Vec3f z = camera_dir.normalize();
     Vec3f y = up.normalize();
     Vec3f x = cross(z, y).normalize();  // Attention
