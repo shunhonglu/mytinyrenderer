@@ -26,10 +26,24 @@ You can set the closest distance and the farthest distance you can see. And you 
 void set_projection_matrix(const float& eye_fov, const float& aspect_ratio, const float& zNear, const float& zFar);
 ```
 
+
 ## 2. MSAA
 
 We oversample each pixel four times, record the color value obtained from each oversampling, and the z-buffer is also four times the original one, and finally average the colors obtained from the four oversamplings.
 
-## bump mapping
+
+## 3. phong shading
+
+![phong shading](./result/phong_output.png)
 
 
+## 4. bump mapping
+
+![bump mapping](./result/bump_output.png)
+
+
+## 5. shadow mapping
+
+![no shadow mapping](./result/noshadow_output.png)
+
+![shadow mapping](./result/shadow_output.png)
