@@ -87,12 +87,31 @@ struct ShadowShader : public IShader {
         Vec2f uv = varying_uv * bar / sum;
         Vec3f normal = (varying_normal * bar / sum).normalize();
 
+        //
+        mat<3, 3, float> A;
+        A[0] = proj<3>(varying_tri.col(1)) - proj<3>(varying_tri.col(0));
+        A[1] = proj<3>(varying_tri.col(2)) - proj<3>(varying_tri.col(0));
+        A[2] = normal;
+
+        mat<3, 3, float> AI = A.invert();
+
+        Vec3f i = AI * Vec3f(varying_uv[0][1] - varying_uv[0][0], varying_uv[0][2] - varying_uv[0][0], 0);
+        Vec3f j = AI * Vec3f(varying_uv[1][1] - varying_uv[1][0], varying_uv[1][2] - varying_uv[1][0], 0);
+
+        mat<3, 3, float> B;
+        B.set_col(0, i.normalize());
+        B.set_col(1, j.normalize());
+        B.set_col(2, normal);
+
+        Vec3f n = (B * model->normal(uv)).normalize();
+        //
+
         Vec3f l = (l_pos - Vec3f(view_pos[0], view_pos[1], view_pos[2])).normalize();
         Vec3f eye_dir = Vec3f(-view_pos[0], -view_pos[1], -view_pos[2]).normalize();
         Vec3f h = (l + eye_dir).normalize();  // half vector!
 
-        float diffuse = std::max(0.f, normal * l);
-        float specular = pow(std::max(h * normal, 0.0f), model->specular(uv));
+        float diffuse = std::max(0.f, n * l);
+        float specular = pow(std::max(h * n, 0.0f), model->specular(uv));
 
         color = model->diffuseBilinear(uv);
         TGAColor c = color;

@@ -160,13 +160,14 @@ void triangle(Vec4f* pts, IShader& shader, TGAImage& image, TGAImage& zbuffer, v
                 float z_interpolated_grayscale = (z_interpolated_result / 4.f - near) / (far - near) * 255.f;
                 zbuffer.set(P.x, P.y, TGAColor(z_interpolated_grayscale));
 
+                // Average the color of four supersampled points!
                 for (auto& v : sample_list_color[No]) {
                     result[0] += v[0];
                     result[1] += v[1];
                     result[2] += v[2];
                     result[3] += v[3];
                 }
-                // it is not **color_result = TGAColor(result[0]/4, result[1]/4, result[2]/4, result[3]/4)**.
+                // It is not **color_result = TGAColor(result[0]/4, result[1]/4, result[2]/4, result[3]/4)**.
                 color_result = TGAColor(result[2] / 4, result[1] / 4, result[0] / 4, result[3] / 4);
                 image.set(P.x, P.y, color_result);
             }
