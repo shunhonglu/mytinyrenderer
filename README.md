@@ -1,6 +1,9 @@
 ## Todo
 
+thanks to [tinyrender](https://github.com/ssloy/tinyrenderer), I have learned a lot from it. At the same time, I also made a lot of changes.
+
 - [ ] Mipmap
+- [x] MVP Transformation
 - [x] MSAA
 - [x] bilinear interpolation
 - [x] shadow map
